@@ -1,7 +1,8 @@
 """Cimoc to Moe"""
-import re
-import os
+import contextlib
 import json
+import os
+import re
 import shutil
 import zipfile
 
@@ -16,42 +17,52 @@ class Cimoc2Mox:
 
     def read(self):
         os.chdir(self.dir)
-        with open(f'index.cdif', 'r') as f:
-            a = re.search('(?<=cimoc).*', f.readline()).group()
+        with open("index.cdif", encoding="utf-8") as f:
+            a = re.search(r"(?<=cimoc).*", f.readline()).group()
             b = json.loads(a)
 
             self.cimoc_config = b
 
-        c1 = [i['title'] for i in self.cimoc_config['list']]
-        c2 = [i['path'] for i in self.cimoc_config['list']]
+        c1 = [i["title"] for i in self.cimoc_config["list"]]
+        c2 = [i["path"] for i in self.cimoc_config["list"]]
 
-        lists = dict()
+        lists = {}
         for title, path in zip(c1, c2):
             lists[path] = title
 
-        self.cimoc_config['list'] = lists
+        self.cimoc_config["list"] = lists
         self._detect_source()
 
     def _detect_source(self):
         a = os.listdir(self.dir)
+
         chapters = []
-        for i in a:
-            if i in self.cimoc_config['list'].keys():
-                chapters.extend([self.cimoc_config['list'][i]])
+        for dir in a:
+            for k1 in self.cimoc_config["list"]:
+                k2 = self._detect_word(k1)
+                if dir == k2:
+                    chapters.extend([self.cimoc_config["list"][k1]])
         self.chapters = chapters
+
+    @staticmethod
+    def _detect_word(word: str) -> str:
+        reg = '[\\\\/:*?"<>|]'
+        if "/" in word or "?" in word:
+            word = re.sub(reg, "-", word)
+        return word
 
     def copy(self):
         os.chdir(self.dir)
         self._init_chapters()
         a = os.listdir(self.dir)
-        a.remove(self.cimoc_config['title'])
+        a.remove(self.cimoc_config["title"])
         for path in a:
             if os.path.isdir(path):
-                with open(f'{path}/index.cdif', 'r') as f:
-                    config = json.loads(re.search('(?<=cimoc).*', f.readline()).group())
-                    title = config['title']
-                figs = os.listdir(f'{self.dir}/{path}')
-                figs.remove('index.cdif')
+                with open(f"{path}/index.cdif") as f:
+                    config = json.loads(re.search(r"(?<=cimoc).*", f.readline()).group())
+                    title = config["title"]
+                figs = os.listdir(f"{self.dir}/{path}")
+                figs.remove("index.cdif")
 
                 for fig in figs:
                     f1 = f"{path}/{fig}"
@@ -62,18 +73,16 @@ class Cimoc2Mox:
 
     def _init_chapters(self):
         os.chdir(self.dir)
-        try:
+        with contextlib.suppress(FileExistsError):
             os.mkdir(f"{self.cimoc_config['title']}")
-        except FileExistsError:
-            pass
 
-        os.chdir(self.cimoc_config['title'])
+        os.chdir(self.cimoc_config["title"])
         for i in self.chapters:
             try:
                 os.mkdir(i)
             except FileExistsError:
                 continue
-        os.chdir('..')
+        os.chdir("..")
 
     def _rename_dir(self):
 
@@ -89,7 +98,7 @@ class Cimoc2Mox:
         dirs = os.path.abspath(f"{self.dir}\\{self.cimoc_config['title']}")
 
         for g in self.group:
-            with zipfile.ZipFile(f"{dirs}\\{min(g)}-{max(g)}.zip", 'w') as myzip:
+            with zipfile.ZipFile(f"{dirs}\\{min(g)}-{max(g)}.zip", "w") as myzip:
                 for chapter in g:
                     figs = os.listdir(f"{dirs}\\{chapter}")
                     for fig in figs:
@@ -97,26 +106,17 @@ class Cimoc2Mox:
             print(f"{min(g)}-{max(g)}.zip 完成")
 
     def _grouping(self):
-        a = [i for i in range(0, len(self.chapters), 5)]
+        a = list(range(0, len(self.chapters), 5))
 
         n = 0
         chapters = sorted(self.chapters)
         group = []
         while n < len(a):
             try:
-                group.append(chapters[a[n]:a[n+1]])
+                group.append(chapters[a[n]:a[n + 1]])
             except IndexError:
                 group.append(chapters[a[n]:])
             finally:
                 n += 1
 
         self.group = group
-
-
-
-
-
-
-
-
-
