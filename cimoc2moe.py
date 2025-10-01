@@ -1,4 +1,5 @@
 """Cimoc to Moe"""
+
 import contextlib
 import json
 import os
@@ -8,8 +9,9 @@ import zipfile
 
 
 class Cimoc2Mox:
-    def __init__(self, source: str):
+    def __init__(self, source: str, group_size: int = 5):
         self.dir = os.path.abspath(source)
+        self.group_size = group_size
 
         self.cimoc_config = None
         self.chapters = None
@@ -58,7 +60,7 @@ class Cimoc2Mox:
         a.remove(self.cimoc_config["title"])
         for path in a:
             if os.path.isdir(path):
-                with open(f"{path}/index.cdif") as f:
+                with open(f"{path}/index.cdif", encoding="utf-8") as f:
                     config = json.loads(re.search(r"(?<=cimoc).*", f.readline()).group())
                     title = config["title"]
                 figs = os.listdir(f"{self.dir}/{path}")
@@ -85,7 +87,6 @@ class Cimoc2Mox:
         os.chdir("..")
 
     def _rename_dir(self):
-
         for c in self.chapters:
             os.rename(f"{self.cimoc_config['title']}/{c}", c.zfill(3))
 
@@ -106,16 +107,16 @@ class Cimoc2Mox:
             print(f"{min(g)}-{max(g)}.zip 完成")
 
     def _grouping(self):
-        a = list(range(0, len(self.chapters), 5))
+        a = list(range(0, len(self.chapters), self.group_size))
 
         n = 0
         chapters = sorted(self.chapters)
         group = []
         while n < len(a):
             try:
-                group.append(chapters[a[n]:a[n + 1]])
+                group.append(chapters[a[n] : a[n + 1]])
             except IndexError:
-                group.append(chapters[a[n]:])
+                group.append(chapters[a[n] :])
             finally:
                 n += 1
 
